@@ -6,7 +6,6 @@ import asyncio
 
 dotenv.load_dotenv()
 
-# Modelo via Ollama
 chat_model = OpenAIChatCompletionsModel(
     model="mistral:7b",
     openai_client=AsyncOpenAI(
@@ -26,7 +25,6 @@ chat_agent = Agent(
     tools=[get_palavra_magica],
 )
 
-# Runner para testar
 async def main():
     runner = await Runner.run(chat_agent, "qual a palavra mágica?")
     print(runner.final_output)

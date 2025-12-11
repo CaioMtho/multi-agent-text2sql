@@ -1,17 +1,17 @@
-from openai import AsyncOpenAI
-from agents import Agent, OpenAIChatCompletionsModel, Runner, SQLiteSession
-from src.multiagent.data_tools import DataTools
 import os
-import dotenv
 import uuid
 import asyncio
+import dotenv
+from openai import AsyncOpenAI
+from agents import Agent, OpenAIChatCompletionsModel, Runner, SQLiteSession, ItemHelpers
+from src.multiagent.data_tools import DataTools
 
 dotenv.load_dotenv()
 
+last_tool_called=""
+
 session_id = str(uuid.uuid4())
-
 data_tools = DataTools()
-
 session = SQLiteSession(session_id=session_id, db_path="./db/sessions.db")
 
 NSQL_INSTRUCTIONS = f"""Você é um especialista em SQL e DuckDB. Sua única função é converter perguntas em linguagem natural para queries SQL válidas.
@@ -86,57 +86,73 @@ chat_agent = Agent(
     ]
 )
 
-async def run_chat(user_message: str):
-    print(f"\n{'=' * 60}")
-    print(f"USUÁRIO: {user_message}")
-    print(f"{'=' * 60}\n")
+def get_status_message(tool_name : str):
+    if tool_name == "text-to-sql":
+        return "Formulando consulta..."
+    elif tool_name == "execute_query":
+        return "Consultando o banco..."
+    
+def get_output_message(output : str, last_tool_called : str):
+    if last_tool_called == "text-to-sql":
+        return f"Consulta gerada: {output}"
+    elif last_tool_called == "execute_query":
+        return f"Resultado da query: {output}\n"
+    return f"Output de {last_tool_called}: {output}"
 
+async def run_chat(user_message: str):
+    last_tool_called=""
     try:
-        result = await Runner.run(
+        result_streaming = Runner.run_streamed(
             starting_agent=chat_agent,
             session=session,
-            input = user_message
+            input=user_message
         )
 
-        final_response = result.final_output
+        async for event in result_streaming.stream_events():
+            if event.type == "agent_updated_stream_event":
+                print(f"    >> Transferindo para o {event.new_agent.name}")
+            
+            elif event.type == "run_item_stream_event":
+                item = event.item
+                
+                if item.type == "tool_call_item":
+                    last_tool_called=item.raw_item.name
+                    print(f"    >> {get_status_message(item.raw_item.name)}")
+                
+                elif item.type=="tool_call_output_item":
+                    print(f"    >> {get_output_message(item.output, last_tool_called)}")
 
-        print(f"\n{'=' * 60}")
-        print(f"ASSISTENTE: {final_response}")
-        print(f"{'=' * 60}\n")
-
-        return final_response
+                elif item.type == "message_output_item":
+                    content = ItemHelpers.text_message_output(item)
+                    print(f"{content}")
 
     except Exception as e:
-        print(f"\n✗ ERRO: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Desculpe, ocorreu um erro: {str(e)}"
-
+        print(f"\nERRO: {e}")
 
 async def interactive_chat():
     print("\n" + "=" * 60)
-    print("CHAT")
+    print("CHAT MULTIAGENTE")
     print("=" * 60)
-    print("'sair' para encerrar\n")
+    print("Digite 'sair' para encerrar.\n")
 
     while True:
         try:
-            user_input = input("Você: ").strip()
+            user_input = input("Voce > ").strip()
 
             if not user_input:
                 continue
 
             if user_input.lower() in ['sair', 'exit', 'quit', 'q']:
-                print("\nEncerrando chat. Até logo!")
+                print("\nEncerrando.")
                 break
 
             await run_chat(user_input)
 
         except KeyboardInterrupt:
-            print("\n\nEncerrando chat. Até logo!")
+            print("\nEncerrando.")
             break
         except Exception as e:
-            print(f"\n✗ Erro inesperado: {e}")
+            print(f"\nErro: {e}")
 
 if __name__ == "__main__":
     asyncio.run(interactive_chat())
