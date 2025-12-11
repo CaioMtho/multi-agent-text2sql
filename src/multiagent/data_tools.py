@@ -7,7 +7,8 @@ class DataTools:
 
     @function_tool()
     def execute_query(self, query):
-        with duckdb.connect(self.connection_string) as db:
+        connection_string = "./db/main.duckdb"
+        with duckdb.connect(connection_string) as db:
             try:
                 result = db.execute(query).fetchall()
                 return result
@@ -16,6 +17,7 @@ class DataTools:
                 raise e
 
     def get_schema(self):
+        self.connection_string="./db/main.duckdb"
         with duckdb.connect(self.connection_string) as db:
             schema = db.execute("""
                                   SELECT table_name,

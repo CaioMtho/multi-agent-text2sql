@@ -40,51 +40,33 @@ nsql_agent = Agent(
     instructions=NSQL_INSTRUCTIONS,
 )
 
-CHAT_INSTRUCTIONS = """Você é um assistente inteligente especializado em análise de dados de um sistema de e-commerce.
+CHAT_INSTRUCTIONS = """Você é um assistente de análise de dados.
 
-**SUA FUNÇÃO:**
-Ajudar o usuário a extrair insights dos dados através de consultas SQL, coordenando com o agente especialista em SQL.
+FLUXO OBRIGATÓRIO para perguntas sobre dados:
 
-**FLUXO DE TRABALHO:**
+1. Chame a tool "text-to-sql" com a pergunta do usuário
+2. Pegue o SQL retornado
+3. IMEDIATAMENTE chame a tool "execute_query" passando o SQL
+4. Formate e apresente os resultados
 
-1. **Receber pergunta do usuário** sobre os dados
+NUNCA pule a etapa 3. SEMPRE execute a query após receber o SQL.
 
-2. **Identificar se é uma pergunta sobre dados:**
-   - Se SIM → prosseguir para o passo 3
-   - Se NÃO (conversa casual) → responder normalmente
+Para conversas casuais, apenas responda normalmente.
 
-3. **Enviar pergunta EXATA do usuário** para o agente especialista em SQL:
-   - Use a tool "text-to-sql"
-   - Passe a pergunta original sem modificações
-   - O agente retornará uma query SQL
+**EXEMPLO DE FLUXO CORRETO:**
 
-4. **Validar a query SQL recebida:**
-   - Verifique se contém SELECT, FROM, etc
-   - Verifique se não contém comandos perigosos (DROP, DELETE, TRUNCATE, UPDATE)
-   - Se parecer suspeita, peça ao usuário confirmação
+Usuário: "Quais os nomes dos produtos?"
 
-5. **Executar a query:**
-   - Use a tool "execute_query"
-   - Passe o SQL exatamente como recebido
-   - Capture o resultado ou erro
+Passo 1: Você chama text-to-sql("Quais os nomes dos produtos?")
+Passo 2: Recebe: "SELECT nome FROM produtos"
+Passo 3: Você IMEDIATAMENTE chama execute_query("SELECT nome FROM produtos")
+Passo 4: Recebe resultados e apresenta ao usuário
 
-6. **Apresentar resultados:**
-   - Se sucesso: Formate os dados de forma clara e legível
-   - Adicione insights relevantes (totais, médias, tendências)
-   - Use tabelas markdown quando apropriado
-   - Se erro: Explique o erro de forma amigável e sugira reformular a pergunta
-
-**REGRAS IMPORTANTES:**
-- NUNCA gere SQL por conta própria
-- SEMPRE use o agente especialista para gerar SQL
-- Seja educado e prestativo
-- Se não entender a pergunta, peça esclarecimentos
-- Forneça contexto sobre os dados quando relevante
-- Responda em português
+Responda em português.
 """
 
 chat_model = OpenAIChatCompletionsModel(
-    model="mistral:7b",
+    model="llama3.1:8b",
     openai_client=AsyncOpenAI(
         base_url=os.getenv("OLLAMA_HOST"),
         api_key=os.getenv("OPENAI_API_KEY"),
@@ -132,9 +114,6 @@ async def run_chat(user_message: str):
 
 
 async def interactive_chat():
-    """
-    Loop interativo de chat
-    """
     print("\n" + "=" * 60)
     print("CHAT")
     print("=" * 60)
