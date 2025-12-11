@@ -27,7 +27,7 @@ NSQL_INSTRUCTIONS = f"""Você é um especialista em SQL e DuckDB. Sua única fun
 Agora converta a pergunta do usuário em SQL seguindo estas regras."""
 
 nsql_model = OpenAIChatCompletionsModel(
-    model="duckdb-nsql",
+    model="duckdb-nsql:latest",
     openai_client=AsyncOpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
         base_url=os.getenv("OLLAMA_HOST"),
@@ -66,9 +66,9 @@ Responda em português.
 """
 
 chat_model = OpenAIChatCompletionsModel(
-    model="llama3.1:8b",
+    model="gpt-oss:20b",
     openai_client=AsyncOpenAI(
-        base_url=os.getenv("OLLAMA_HOST"),
+        base_url=os.getenv("OPENAI_HOST"),
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 )
