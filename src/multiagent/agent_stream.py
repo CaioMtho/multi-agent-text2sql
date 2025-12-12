@@ -49,7 +49,8 @@ FLUXO OBRIGATÓRIO para perguntas sobre dados:
 
 NUNCA pule a etapa 3. SEMPRE execute a query após receber o SQL.
 
-Para conversas casuais, apenas responda normalmente.
+NÃO RESPONDA NADA QUE NÃO TENHA A VER COM UM ECOMMERCE, mensagens paralelas devem
+ser respondidas com "Desculpe, não posso falar sobre isso"
 
 **EXEMPLO DE FLUXO CORRETO:**
 
@@ -94,7 +95,7 @@ def get_output_message(output : str, last_tool_called : str):
     if last_tool_called == "text-to-sql":
         return f"Consulta gerada: {output}"
     elif last_tool_called == "execute_query":
-        return f"Resultado da query: {output}\n"
+        return f"Resultado da query: \n"
     return f"Output de {last_tool_called}: {output}"
 
 async def run_chat(user_message: str):
