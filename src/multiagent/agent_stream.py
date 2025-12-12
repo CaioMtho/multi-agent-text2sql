@@ -8,8 +8,6 @@ from src.multiagent.data_tools import DataTools
 
 dotenv.load_dotenv()
 
-last_tool_called=""
-
 session_id = str(uuid.uuid4())
 data_tools = DataTools()
 session = SQLiteSession(session_id=session_id, db_path="./db/sessions.db")
@@ -100,7 +98,7 @@ def get_output_message(output : str, last_tool_called : str):
     return f"Output de {last_tool_called}: {output}"
 
 async def run_chat(user_message: str):
-    last_tool_called=""
+    tool_stack = []
     try:
         result_streaming = Runner.run_streamed(
             starting_agent=chat_agent,
@@ -116,11 +114,12 @@ async def run_chat(user_message: str):
                 item = event.item
                 
                 if item.type == "tool_call_item":
-                    last_tool_called=item.raw_item.name
+                    tool_stack.append(item.raw_item.name)
                     print(f"    >> {get_status_message(item.raw_item.name)}")
                 
                 elif item.type=="tool_call_output_item":
-                    print(f"    >> {get_output_message(item.output, last_tool_called)}")
+                    print(f"    >> {get_output_message(item.output, tool_stack[-1])}")
+                    tool_stack.pop()
 
                 elif item.type == "message_output_item":
                     content = ItemHelpers.text_message_output(item)
