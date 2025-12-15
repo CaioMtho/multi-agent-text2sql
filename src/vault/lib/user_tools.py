@@ -26,7 +26,7 @@ async def login_user(email : str, password : str):
         f_user = Fernet(user_key)
         
         master_key = f_user.decrypt(wrapped_master_key)
-        return {result['id'], master_key}
+        return {'id' : result['id'], 'master_key' : master_key}
 
 async def create_user(new_user : NewUser):
     salt = os.urandom(16)
@@ -42,3 +42,18 @@ async def create_user(new_user : NewUser):
         await db.execute(stmt, (new_user.email, password_hash, salt, wrapped_master_key))
         await db.commit()
         return master_key
+    
+async def reset_password(email : str, old_password : str, new_password : str, master_key : bytes):
+    login = login_user(email, old_password)
+    master_key = login['master_key']
+    
+    salt = os.urandom(16)
+    user_key_bytes = derive_key_from_password(new_password, salt)
+    f_user = Fernet(user_key_bytes)
+
+    wrapped_master_key = f_user.encrypt(master_key)
+    password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+
+    async with get_conn() as db:
+        cursor = await db.execute('UPDATE users SET wrapped_master_key = ?, password_hash = ?, kdf_salt = ?', (wrapped_master_key, password_hash, salt))
+        await db.commit()
