@@ -54,7 +54,7 @@ async def create_vault(new_vault : NewVault):
         if row is None:
             raise ValueError("owner not found")
         
-        await db.execute("INSERT INTO vaults(owner_id, name, description) VALUES(?, ?, ?)", (
+        cursor = await db.execute("INSERT INTO vaults(owner_id, name, description) VALUES(?, ?, ?)", (
                 new_vault.owner_id, 
                 new_vault.name, 
                 new_vault.description
@@ -63,13 +63,16 @@ async def create_vault(new_vault : NewVault):
         
         await db.commit()
 
-async def delete_vault(id : int):
-    async with get_conn() as db:
-        cursor = db.execute("DELETE FROM vaults WHERE id=?", (id,))
-        
-        if cursor.rowcount < 0:
-                    raise ValueError("Delete does not affected any row")
+        last_id = await cursor.lastrowid
 
-        db.commit()
+        row = cursor.execute("SELECT * FROM vaults WHERE id=?", (last_id,))
 
-        
+        return Vault(
+                id=row['id'],
+                owner_id=row['owner_id'],
+                name=row['name'],
+                description=row['description'],
+                created_at=row['created_at'],
+                updated_at=row['updated_at']
+            )
+
