@@ -15,9 +15,12 @@ async def create(new_secret : NewSecret):
 
 @router.get("/secret/")
 async def get(master_key : str, id : Optional[int] = None, name : Optional[str] = None):
-    if not id and not name:
-        raise HTTPException(status_code=400, detail="name or id needs to be not null")
+    try:
+        if not id and not name:
+            raise HTTPException(status_code=400, detail="name or id needs to be not null")
 
-    secret = await get_secret(id, name, master_key.encode('utf-8'))
+        secret = await get_secret(id, name, master_key.encode('utf-8'))
 
-    return secret 
+        return secret
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
