@@ -5,7 +5,6 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     kdf_salt TEXT NOT NULL,
     wrapped_master_key TEXT NOT NULL, 
-    master_key_nonce TEXT NOT NULL,
     
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -27,7 +26,6 @@ CREATE TABLE secrets (
     vault_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     ciphertext TEXT NOT NULL,     
-    nonce TEXT NOT NULL,
     
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
