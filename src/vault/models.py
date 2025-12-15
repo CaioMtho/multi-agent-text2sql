@@ -1,12 +1,15 @@
 from pydantic import BaseModel
 from typing import Optional
 
+class LoginRequest(BaseModel):
+    email : str
+    password: str
+
 class NewUser(BaseModel):
-    username : str
     email : str
     password : str
-    kdf_salt : Optional[str]
-    master_key : Optional[str]
+    kdf_salt : Optional[str] = None
+    master_key : Optional[str] = None
     
 class NewSecret(BaseModel):
     vault_id : int

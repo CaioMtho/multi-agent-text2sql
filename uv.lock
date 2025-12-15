@@ -843,6 +843,7 @@ dependencies = [
     { name = "fernet" },
     { name = "openai" },
     { name = "openai-agents" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -855,6 +856,7 @@ requires-dist = [
     { name = "fernet", specifier = ">=1.0.1" },
     { name = "openai", specifier = ">=2.9.0" },
     { name = "openai-agents", specifier = ">=0.6.2" },
+    { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 
 [[package]]
