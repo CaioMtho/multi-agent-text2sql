@@ -5,6 +5,7 @@ import dotenv
 from openai import AsyncOpenAI
 from agents import Agent, OpenAIChatCompletionsModel, Runner, SQLiteSession, ItemHelpers
 from src.multiagent.data_tools import DataTools
+from src.multiagent.status_streaming import StatusStreaming, CustomMessage
 
 dotenv.load_dotenv()
 
@@ -85,21 +86,7 @@ chat_agent = Agent(
     ]
 )
 
-def get_status_message(tool_name : str):
-    if tool_name == "text-to-sql":
-        return "Formulando consulta..."
-    elif tool_name == "execute_query":
-        return "Consultando o banco..."
-    
-def get_output_message(output : str, last_tool_called : str):
-    if last_tool_called == "text-to-sql":
-        return f"Consulta gerada: {output}"
-    elif last_tool_called == "execute_query":
-        return f"A query foi executada!\n"
-    return f"Output de {last_tool_called}: {output}"
-
-async def run_chat(user_message: str):
-    tool_stack = []
+async def run_chat(user_message: str, status_streamer: StatusStreaming):
     try:
         result_streaming = Runner.run_streamed(
             starting_agent=chat_agent,
@@ -107,52 +94,38 @@ async def run_chat(user_message: str):
             input=user_message
         )
 
-        async for event in result_streaming.stream_events():
-            if event.type == "agent_updated_stream_event":
-                print(f"    >> Transferindo para o {event.new_agent.name}")
+        async for msg_type, content in status_streamer.process_stream(result_streaming):
             
-            elif event.type == "run_item_stream_event":
-                item = event.item
-                
-                if item.type == "tool_call_item":
-                    tool_stack.append(item.raw_item.name)
-                    print(f"    >> {get_status_message(item.raw_item.name)}")
-                
-                elif item.type=="tool_call_output_item":
-                    print(f"    >> {get_output_message(item.output, tool_stack[-1])}")
-                    tool_stack.pop()
+            if msg_type == "agent_switch":
+                print(f" >>> {content}")
+            
+            elif msg_type == "status":
+                print(f"    >>  {content}")
+            
+            elif msg_type == "content":
+                print(content, end="", flush=True)
 
-                elif item.type == "message_output_item":
-                    content = ItemHelpers.text_message_output(item)
-                    print(f"{content}")
+        print("\n")
 
     except Exception as e:
         print(f"\nERRO: {e}")
 
 async def interactive_chat():
-    print("\n" + "=" * 60)
-    print("CHAT MULTIAGENTE")
-    print("=" * 60)
-    print("Digite 'sair' para encerrar.\n")
+    messages_config = [
+        CustomMessage(tool_name="text-to-sql", message="Criando a query SQL...", is_call=True),
+        CustomMessage(tool_name="text-to-sql", message="Query gerada: {output}", is_output=True, is_call=False),
+        CustomMessage(tool_name="execute_query", message="Rodando no banco de dados...", is_call=True),
+        CustomMessage(tool_name="execute_query", message="Dados recuperados", is_output=True, is_call=False)
+    ]
 
+    status_streamer = StatusStreaming(custom_messages=messages_config, show_raw=True)
+
+    print("--- Chat ---")
     while True:
-        try:
-            user_input = input("Voce > ").strip()
-
-            if not user_input:
-                continue
-
-            if user_input.lower() in ['sair', 'exit', 'quit', 'q']:
-                print("\nEncerrando.")
-                break
-
-            await run_chat(user_input)
-
-        except KeyboardInterrupt:
-            print("\nEncerrando.")
-            break
-        except Exception as e:
-            print(f"\nErro: {e}")
+        user_input = input("\nVoce > ").strip()
+        if user_input in ['sair', 'q']: break
+        
+        await run_chat(user_input, status_streamer)
 
 if __name__ == "__main__":
     asyncio.run(interactive_chat())
