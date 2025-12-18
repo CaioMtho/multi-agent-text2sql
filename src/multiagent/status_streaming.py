@@ -18,9 +18,10 @@ class CustomMessage:
         return self.message.format(**data)
 
 class StatusStreaming:
-    def __init__(self, custom_messages: List[CustomMessage] = [], show_raw: bool = False):
+    def __init__(self, custom_messages: List[CustomMessage] = [], show_raw: bool = False, show_raw_output=True):
         self.tool_stack: List[str] = []
         self.show_raw = show_raw
+        self.show_raw_output = show_raw_output
         
         # (tool_name, "call"|"output")
         self.message_map: Dict[Tuple[str, str], CustomMessage] = {}
@@ -33,7 +34,7 @@ class StatusStreaming:
 
     async def process_stream(self, stream: RunResultStreaming) -> AsyncGenerator[Tuple[str, str], None]:
         """
-        yielda (tipo_evento, conteudo_formatado)
+        retorna (tipo_evento, conteudo_formatado)
         
         tipos:
         - agent_switch: Mudança de agente
@@ -70,7 +71,7 @@ class StatusStreaming:
                             msg_obj.result = output_str
                             yield ("status", msg_obj.formatted_message)
                             msg_obj.result = None
-                        elif self.show_raw:
+                        elif self.show_raw and self.show_raw_output:
                             yield ("status", f"Output de {tool_name}: {output_str}")
 
                 elif item.type == "message_output_item":

@@ -1,17 +1,19 @@
+import os
+import uuid
+import asyncio
+import dotenv
+from colorama import init, Fore, Style, Back
 from openai import AsyncOpenAI
 from agents import Agent, OpenAIChatCompletionsModel, Runner, SQLiteSession
 from src.multiagent.data_tools import DataTools
-import os
-import dotenv
-import uuid
-import asyncio
+from src.multiagent.status_streaming import StatusStreaming, CustomMessage
 
 dotenv.load_dotenv()
 
+init(autoreset=True)
+
 session_id = str(uuid.uuid4())
-
 data_tools = DataTools()
-
 session = SQLiteSession(session_id=session_id, db_path="./db/sessions.db")
 
 NSQL_INSTRUCTIONS = f"""Você é um especialista em SQL e DuckDB. Sua única função é converter perguntas em linguagem natural para queries SQL válidas.
@@ -27,10 +29,10 @@ NSQL_INSTRUCTIONS = f"""Você é um especialista em SQL e DuckDB. Sua única fun
 Agora converta a pergunta do usuário em SQL seguindo estas regras."""
 
 nsql_model = OpenAIChatCompletionsModel(
-    model="duckdb-nsql:latest",
+    model="duckdb-nsql:7b",
     openai_client=AsyncOpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
-        base_url=os.getenv("OLLAMA_HOST"),
+        base_url=os.getenv("LAERA_HOST"),
     )
 )
 
@@ -51,7 +53,8 @@ FLUXO OBRIGATÓRIO para perguntas sobre dados:
 
 NUNCA pule a etapa 3. SEMPRE execute a query após receber o SQL.
 
-Para conversas casuais, apenas responda normalmente.
+NÃO RESPONDA NADA QUE NÃO TENHA A VER COM UM ECOMMERCE, mensagens paralelas devem
+ser respondidas com "Desculpe, não posso falar sobre isso"
 
 **EXEMPLO DE FLUXO CORRETO:**
 
@@ -86,57 +89,46 @@ chat_agent = Agent(
     ]
 )
 
-async def run_chat(user_message: str):
-    print(f"\n{'=' * 60}")
-    print(f"USUÁRIO: {user_message}")
-    print(f"{'=' * 60}\n")
-
+async def run_chat(user_message: str, status_streamer: StatusStreaming):
     try:
-        result = await Runner.run(
+        result_streaming = Runner.run_streamed(
             starting_agent=chat_agent,
             session=session,
-            input = user_message
+            input=user_message
         )
 
-        final_response = result.final_output
+        async for msg_type, content in status_streamer.process_stream(result_streaming):
+            
+            if msg_type == "agent_switch":
+                print(f"\n {Fore.YELLOW}>>> {content}")
+            
+            elif msg_type == "status":
+                print(f"{Fore.YELLOW}    >>  {content}")
+            
+            elif msg_type == "content":
+                print(f"\n{Fore.LIGHTBLUE_EX}Agente > {Fore.WHITE} {content}", end="", flush=True)
 
-        print(f"\n{'=' * 60}")
-        print(f"ASSISTENTE: {final_response}")
-        print(f"{'=' * 60}\n")
-
-        return final_response
+        print("\n")
 
     except Exception as e:
-        print(f"\n✗ ERRO: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Desculpe, ocorreu um erro: {str(e)}"
-
+        print(f"\n{Fore.BLACK}{Back.RED}ERRO: {e}")
 
 async def interactive_chat():
-    print("\n" + "=" * 60)
-    print("CHAT")
-    print("=" * 60)
-    print("'sair' para encerrar\n")
+    messages_config = [
+        CustomMessage(tool_name="text-to-sql", message="Criando a query SQL...", is_call=True),
+        CustomMessage(tool_name="text-to-sql", message="Query gerada: {output}", is_output=True, is_call=False),
+        CustomMessage(tool_name="execute_query", message="Rodando no banco de dados...", is_call=True),
+        CustomMessage(tool_name="execute_query", message="Dados recuperados", is_output=True, is_call=False)
+    ]
 
+    status_streamer = StatusStreaming(custom_messages=messages_config, show_raw=True)
+
+    print(f"{Fore.LIGHTBLUE_EX}--- Chat ---")
     while True:
-        try:
-            user_input = input("Você: ").strip()
-
-            if not user_input:
-                continue
-
-            if user_input.lower() in ['sair', 'exit', 'quit', 'q']:
-                print("\nEncerrando chat. Até logo!")
-                break
-
-            await run_chat(user_input)
-
-        except KeyboardInterrupt:
-            print("\n\nEncerrando chat. Até logo!")
-            break
-        except Exception as e:
-            print(f"\n✗ Erro inesperado: {e}")
+        user_input = input(f"\n{Style.BRIGHT}{Fore.CYAN}Voce > {Fore.WHITE}").strip()
+        if user_input in ['sair', 'q']: break
+        
+        await run_chat(user_input, status_streamer)
 
 if __name__ == "__main__":
     asyncio.run(interactive_chat())
