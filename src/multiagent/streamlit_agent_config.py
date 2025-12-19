@@ -2,15 +2,12 @@ import os
 import uuid
 import asyncio
 import dotenv
-from colorama import init, Fore, Style, Back
 from openai import AsyncOpenAI
 from agents import Agent, OpenAIChatCompletionsModel, Runner, SQLiteSession, function_tool
-from src.multiagent.data_tools import DataTools
-from src.multiagent.status_streaming import StatusStreaming, CustomMessage
+from data_tools import DataTools
+from status_streaming import StatusStreaming, CustomMessage
 
 dotenv.load_dotenv()
-
-init(autoreset=True)
 
 session_id = str(uuid.uuid4())
 data_tools = DataTools()
@@ -88,46 +85,3 @@ chat_agent = Agent(
         ),
     ]
 )
-
-async def run_chat(user_message: str, status_streamer: StatusStreaming):
-    try:
-        result_streaming = Runner.run_streamed(
-            starting_agent=chat_agent,
-            session=session,
-            input=user_message
-        )
-
-        async for msg_type, content in status_streamer.process_stream(result_streaming):
-            if msg_type == "agent_switch":
-                print(f"\n {Fore.YELLOW}>>> {content}")
-            
-            elif msg_type == "status":
-                print(f"{Fore.YELLOW}    >>  {content}")
-            
-            elif msg_type == "content":
-                print(f"\n{Fore.LIGHTBLUE_EX}Agente > {Fore.WHITE} {content}", end="", flush=True)
-
-        print("\n")
-
-    except Exception as e:
-        print(f"\n{Fore.BLACK}{Back.RED}ERRO: {e}")
-
-async def interactive_chat():
-    messages_config = [
-        CustomMessage(tool_name="text-to-sql", message="Criando a query SQL..."),
-        CustomMessage(tool_name="text-to-sql", message="Query gerada: {output}", is_output=True, is_call=False),
-        CustomMessage(tool_name="execute_query", message="Rodando no banco de dados...", is_call=True),
-        CustomMessage(tool_name="execute_query", message="Dados recuperados", is_output=True, is_call=False),
-    ]
-
-    status_streamer = StatusStreaming(custom_messages=messages_config,use_default=True, show_raw_output=False)
-
-    print(f"{Fore.LIGHTBLUE_EX}--- Chat ---")
-    while True:
-        user_input = input(f"\n{Style.BRIGHT}{Fore.CYAN}Voce > {Fore.WHITE}").strip()
-        if user_input =='sair': break
-        
-        await run_chat(user_input, status_streamer)
-
-if __name__ == "__main__":
-    asyncio.run(interactive_chat())

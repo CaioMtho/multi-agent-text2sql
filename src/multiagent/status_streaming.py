@@ -18,11 +18,11 @@ class CustomMessage:
         return self.message.format(**data)
 
 class StatusStreaming:
-    def __init__(self, custom_messages: List[CustomMessage] = [], show_raw: bool = False, show_raw_output=True):
+    def __init__(self, custom_messages: List[CustomMessage] = [], use_default: bool = True, show_raw_output=False):
         self.tool_stack: List[str] = []
-        self.show_raw = show_raw
+        self.use_default = use_default
         self.show_raw_output = show_raw_output
-        
+
         # (tool_name, "call"|"output")
         self.message_map: Dict[Tuple[str, str], CustomMessage] = {}
         for msg in custom_messages:
@@ -57,7 +57,7 @@ class StatusStreaming:
                     
                     if msg_obj:
                         yield ("status", msg_obj.formatted_message)
-                    elif self.show_raw:
+                    elif self.use_default:
                         yield ("status", f"Chamando ferramenta: {tool_name}...")
 
                 elif item.type == "tool_call_output_item":
@@ -71,7 +71,7 @@ class StatusStreaming:
                             msg_obj.result = output_str
                             yield ("status", msg_obj.formatted_message)
                             msg_obj.result = None
-                        elif self.show_raw and self.show_raw_output:
+                        elif self.use_default and self.show_raw_output:
                             yield ("status", f"Output de {tool_name}: {output_str}")
 
                 elif item.type == "message_output_item":
