@@ -18,10 +18,11 @@ class CustomMessage:
         return self.message.format(**data)
 
 class StatusStreaming:
-    def __init__(self, custom_messages: List[CustomMessage] = [], use_default: bool = True, show_raw_output=False):
+    def __init__(self, custom_messages: List[CustomMessage] = [], use_default: bool = True, show_raw_output=False, show_agent_switch = True):
         self.tool_stack: List[str] = []
         self.use_default = use_default
         self.show_raw_output = show_raw_output
+        self.show_agent_switch = show_agent_switch
 
         # (tool_name, "call"|"output")
         self.message_map: Dict[Tuple[str, str], CustomMessage] = {}
@@ -38,13 +39,14 @@ class StatusStreaming:
         
         tipos:
         - agent_switch: Mudança de agente
-        - status: Mensagens de ferramentas (call/output)
-        - content: Resposta final do LLM (tokens ou texto completo)
+        - status: Mensagens de ferramentas
+        - content: Resposta final do LLM 
         """
         async for event in stream.stream_events():
             
             if event.type == "agent_updated_stream_event":
-                yield ("agent_switch", f"Transferindo para o {event.new_agent.name}")
+                if self.show_agent_switch:
+                    yield ("agent_switch", f"Transferindo para o {event.new_agent.name}")
 
             elif event.type == "run_item_stream_event":
                 item = event.item
